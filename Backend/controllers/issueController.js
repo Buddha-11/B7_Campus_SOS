@@ -2,6 +2,7 @@
 const Issue = require('../models/Issue');
 const User = require('../models/User');
 const { PREDEFINED_TAGS, TAG_POINTS } = require('../config/tags');
+const cloudinary = require('../config/cloudinary');
 const mongoose = require('mongoose');
 
 const validateTags = (tags) => {
@@ -12,20 +13,47 @@ const validateTags = (tags) => {
   return filtered;
 };
 
+// Helper: upload buffer to Cloudinary, return secure_url
+const uploadBufferToCloudinary = (buffer, filename) => {
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      { folder: 'campus_sos', public_id: filename, resource_type: 'image' },
+      (error, result) => {
+        if (error) return reject(error);
+        resolve(result);
+      }
+    );
+    uploadStream.end(buffer);
+  });
+};
+
 // Create issue (user)
 const createIssue = async (req, res) => {
   try {
     const { title, description, lng, lat, tags = [], severity = 'Low' } = req.body;
     if (!title || !lng || !lat) return res.status(400).json({ message: 'title and location required' });
 
-    // validate tags
+    // parse tags if sent as JSON string
     let tagArray = [];
-    try { tagArray = validateTags(Array.isArray(tags) ? tags : JSON.parse(tags)); } catch (e) {
-      // if tags sent as JSON string or as array
+    try {
+      tagArray = validateTags(Array.isArray(tags) ? tags : JSON.parse(tags));
+    } catch (e) {
+      // if parsing fails, try using tags as array directly
       tagArray = validateTags(tags);
     }
 
-    const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
+    let imageUrl = null;
+    if (req.file && req.file.buffer) {
+      // use a deterministic-ish filename: timestamp-random
+      const uniqueName = `issue-${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+      try {
+        const result = await uploadBufferToCloudinary(req.file.buffer, uniqueName);
+        imageUrl = result.secure_url || result.url || null;
+      } catch (err) {
+        console.error('Cloudinary upload error:', err);
+        return res.status(500).json({ message: 'Image upload failed', error: err.message || err });
+      }
+    }
 
     const issue = await Issue.create({
       title,
@@ -42,6 +70,7 @@ const createIssue = async (req, res) => {
 
     res.status(201).json(issue);
   } catch (err) {
+    console.error('createIssue error:', err);
     res.status(500).json({ message: 'Create issue failed', error: err.message });
   }
 };
@@ -50,8 +79,7 @@ const createIssue = async (req, res) => {
 const getIssue = async (req, res) => {
   try {
     const issue = await Issue.findById(req.params.id)
-      .populate('reporter', 'name email avatarUrl')
-    ;
+      .populate('reporter', 'name email avatarUrl');
     if (!issue) return res.status(404).json({ message: 'Issue not found' });
     res.json(issue);
   } catch (err) {
@@ -129,7 +157,7 @@ const updateStatus = async (req, res) => {
     const issue = await Issue.findById(req.params.id).populate('reporter');
     if (!issue) return res.status(404).json({ message: 'Issue not found' });
 
-    // permission check: only admin or assigned admin can update status (or optionally the reporter can request)
+    // permission check: only admin or assigned admin or reporter can update status
     const isAdmin = req.user.role === 'admin';
     const isAssignedAdmin = issue.assignedAdmin && issue.assignedAdmin.equals(req.user._id);
     const isReporter = issue.reporter._id.equals(req.user._id);
@@ -171,7 +199,7 @@ const updateTags = async (req, res) => {
   try {
     const { tags } = req.body;
     let tagArray;
-    try { tagArray = validateTags(tags); } catch (e) { return res.status(400).json({ message: 'Invalid tags payload' }); }
+    try { tagArray = validateTags(Array.isArray(tags) ? tags : JSON.parse(tags)); } catch (e) { return res.status(400).json({ message: 'Invalid tags payload' }); }
 
     const issue = await Issue.findById(req.params.id);
     if (!issue) return res.status(404).json({ message: 'Issue not found' });
