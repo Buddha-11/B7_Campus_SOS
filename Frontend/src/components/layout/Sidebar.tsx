@@ -1,3 +1,4 @@
+// src/components/layout/Sidebar.tsx
 import React from "react";
 import { NavLink } from "react-router-dom";
 import {
@@ -50,9 +51,12 @@ const Sidebar = ({ userType, className }: SidebarProps) => {
       {/* Scrollable nav area */}
       <nav className="flex-1 overflow-y-auto p-4 space-y-2">
         {items.map((item) => (
+          // IMPORTANT: use `end` so NavLink only becomes active on exact match,
+          // preventing parent routes from remaining highlighted when a child route is active.
           <NavLink
             key={item.href}
             to={item.href}
+            end
             className={({ isActive }) =>
               cn(
                 "flex items-center gap-3 px-4 py-3 rounded-lg transition-colors",

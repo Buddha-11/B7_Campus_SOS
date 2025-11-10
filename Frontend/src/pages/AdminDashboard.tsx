@@ -235,7 +235,7 @@ const AdminDashboard: React.FC = () => {
   }, [markerPoints]);
 
   const MAP_DEFAULT_CENTER: [number, number] = markerPoints.length ? markerPoints[0].latlng : [25.4358, 81.8496];
-  const radiusForCount = (count: number) => 30 + Math.pow(count, 1.2) * 35; // meters, tweak as required
+  const radiusForCount = (count: number) => 30 + Math.pow(count, 0.8) * 30; // meters, tweak as required
 
   return (
     <div className="flex min-h-screen bg-background">

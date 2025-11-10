@@ -238,7 +238,7 @@ const StudentDashboard = () => {
                             <span className="font-medium text-sm">{user.name}</span>
                           </div>
                           <div className="text-xs text-muted-foreground">
-                            {user.pointsEarned || 0} points •{' '}
+                            {user.points || 0} points •{' '}
                             {user.reportsSubmitted || user.reports || 0} reports
                           </div>
                         </div>
