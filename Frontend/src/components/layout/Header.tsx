@@ -67,7 +67,7 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
           <ThemeToggle />
 
           {/* Notifications only when logged in */}
-          {loggedIn && (
+          {/* {loggedIn && (
             <Button variant="ghost" size="icon" className="relative">
               <Bell className="h-5 w-5" />
               <span className="absolute -top-1 -right-1 h-3 w-3 bg-primary rounded-full text-xs flex items-center justify-center text-white">
@@ -75,7 +75,7 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
               </span>
               <span className="sr-only">Notifications</span>
             </Button>
-          )}
+          )} */}
 
           {/* Avatar / Login */}
           {!loggedIn ? (
@@ -115,7 +115,7 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
 
                   <div className="flex flex-col">
                     <Link
-                      to="/profile"
+                      to="/dashboard/profile"
                       onClick={() => setMenuOpen(false)}
                       className="flex items-center gap-3 px-4 py-2 hover:bg-muted/50 text-sm"
                     >
@@ -123,14 +123,6 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
                       <span>Profile</span>
                     </Link>
 
-                    <Link
-                      to="/settings"
-                      onClick={() => setMenuOpen(false)}
-                      className="flex items-center gap-3 px-4 py-2 hover:bg-muted/50 text-sm"
-                    >
-                      <Settings className="h-4 w-4" />
-                      <span>Settings</span>
-                    </Link>
 
                     <button
                       onClick={handleLogout}

@@ -140,9 +140,9 @@ const MapView: React.FC<MapViewProps> = ({ onReportIssue, onViewIssue }) => {
           <Button variant="outline" className="flex items-center gap-2" onClick={() => {/* filter open logic */}}>
             <Filter className="h-4 w-4" /> Filter
           </Button>
-          <Button onClick={onReportIssue} className="flex items-center gap-2 bg-primary hover:bg-primary-hover">
+          {/* <Button onClick={onReportIssue} className="flex items-center gap-2 bg-primary hover:bg-primary-hover">
             <Plus className="h-4 w-4" /> Report Issue
-          </Button>
+          </Button> */}
         </div>
       </div>
 
