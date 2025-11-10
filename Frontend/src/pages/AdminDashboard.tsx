@@ -1,5 +1,5 @@
 // src/pages/AdminDashboard.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Sidebar from '@/components/layout/Sidebar';
 import Header from '@/components/layout/Header';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Eye, CheckCircle, AlertTriangle, Clock, Filter, Tag } from 'lucide-react';
+
+import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from 'react-leaflet';
+import L, { Icon } from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 const AUTH_TOKEN_KEY = 'campus_sos_token';
@@ -49,6 +53,47 @@ const severityChipClass = (severity?: string) => {
   // low / default
   return 'bg-green-100 text-green-800 border-green-200';
 };
+
+// create a simple SVG marker as a data URL, colored by status
+const makeSvgIcon = (color = '#ef4444') => {
+  const svg = encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="34" height="40" viewBox="0 0 34 40"><path d="M17 0C8 0 1 7 1 16c0 12 16 24 16 24s16-12 16-24C33 7 26 0 17 0z" fill="${color}"/><circle cx="17" cy="16" r="6" fill="white"/></svg>`
+  );
+  return new Icon({
+    iconUrl: `data:image/svg+xml;charset=UTF-8,${svg}`,
+    iconSize: [28, 36],
+    iconAnchor: [14, 36],
+    popupAnchor: [0, -36],
+  });
+};
+
+const statusColor = (status?: string) => {
+  if (!status) return '#ef4444';
+  const s = status.toLowerCase();
+  if (s.includes('resolv')) return '#10b981';
+  if (s.includes('progress')) return '#f59e0b';
+  return '#ef4444';
+};
+
+// Fit map bounds to provided points
+function FitBounds({ points }: { points: [number, number][] }) {
+  const map = useMap();
+  React.useEffect(() => {
+    if (!map) return;
+    if (!points || points.length === 0) {
+      // campus default center (change to your campus if desired)
+      map.setView([25.4358, 81.8496], 16);
+      return;
+    }
+    if (points.length === 1) {
+      map.setView(points[0], 17);
+      return;
+    }
+    const bounds = L.latLngBounds(points);
+    map.fitBounds(bounds, { padding: [50, 50] });
+  }, [map, points]);
+  return null;
+}
 
 const AdminDashboard: React.FC = () => {
   const [issues, setIssues] = useState<any[]>([]);
@@ -159,6 +204,39 @@ const AdminDashboard: React.FC = () => {
   // derive categories from issues (keeps in sync)
   const derivedCategories = Array.from(new Set(issues.map(i => (i.category || (i.tags && i.tags[0]) || 'other').toString()))).sort();
 
+  // --- Map integration: prepare marker points + density bins ---
+  // markerPoints derived from filteredIssues — only issues that have coordinates
+  const markerPoints = useMemo(() => {
+    return filteredIssues.map((it) => {
+      const coords = it.location?.coordinates;
+      if (Array.isArray(coords) && coords.length >= 2) {
+        // GeoJSON stored as [lng, lat]
+        return { id: it.id || it._id, latlng: [Number(coords[1]), Number(coords[0])] as [number, number], issue: it };
+      }
+      if (it.lat !== undefined && it.lng !== undefined) {
+        return { id: it.id || it._id, latlng: [Number(it.lat), Number(it.lng)] as [number, number], issue: it };
+      }
+      return null;
+    }).filter(Boolean) as { id: string; latlng: [number, number]; issue: any }[];
+  }, [filteredIssues]);
+
+  // density binning (simple grid) — tweak precision for campus scale
+  const densityBins = useMemo(() => {
+    const bins = new Map<string, { lat: number; lng: number; count: number }>();
+    const precision = 0.0015; // ~100-200m; adjust to taste
+    markerPoints.forEach((p) => {
+      const latKey = Math.round(p.latlng[0] / precision) * precision;
+      const lngKey = Math.round(p.latlng[1] / precision) * precision;
+      const key = `${latKey.toFixed(6)}|${lngKey.toFixed(6)}`;
+      if (!bins.has(key)) bins.set(key, { lat: latKey, lng: lngKey, count: 0 });
+      bins.get(key)!.count += 1;
+    });
+    return Array.from(bins.values());
+  }, [markerPoints]);
+
+  const MAP_DEFAULT_CENTER: [number, number] = markerPoints.length ? markerPoints[0].latlng : [25.4358, 81.8496];
+  const radiusForCount = (count: number) => 30 + Math.pow(count, 1.2) * 35; // meters, tweak as required
+
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar userType="admin" />
@@ -222,18 +300,78 @@ const AdminDashboard: React.FC = () => {
               </Card>
             </div>
 
-            {/* Heatmap */}
+            {/* Map Card (Pins + Heat) - uses filteredIssues so it respects your selectedCategoryOrTag */}
             <Card className="p-6">
-              <h2 className="text-xl font-semibold mb-4 text-foreground">Issue Heatmap</h2>
-              <div className="relative h-64 bg-gradient-to-br from-primary/5 to-secondary/5 rounded-lg border-2 border-dashed border-muted-foreground/25 flex items-center justify-center">
-                <div className="text-center">
-                  <div className="text-4xl mb-2">🗺️</div>
-                  <p className="text-muted-foreground">Campus Heatmap Visualization</p>
-                  <p className="text-sm text-muted-foreground">Red areas indicate high issue density</p>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold text-foreground">Map: Pins & Heat</h2>
+                <div className="flex items-center gap-4">
+                  <Select value={selectedCategoryOrTag} onValueChange={setSelectedCategoryOrTag}>
+                    <SelectTrigger className="w-56">
+                      <Filter className="h-4 w-4 mr-2" />
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Categories / Tags</SelectItem>
+
+                      {derivedCategories.map(cat => (
+                        <SelectItem key={`cat-${cat}`} value={cat}>Category: {cat}</SelectItem>
+                      ))}
+
+                      <SelectItem value="__tags_header" disabled>— Tags —</SelectItem>
+
+                      {PREDEFINED_TAGS.map(tag => (
+                        <SelectItem key={`tag-${tag}`} value={tag}>Tag: {tag}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-                <div className="absolute top-1/4 left-1/3 w-16 h-16 bg-red-500/30 rounded-full"></div>
-                <div className="absolute top-2/3 right-1/4 w-12 h-12 bg-yellow-500/30 rounded-full"></div>
-                <div className="absolute bottom-1/4 left-1/2 w-8 h-8 bg-green-500/30 rounded-full"></div>
+              </div>
+
+              <div className="h-[520px] rounded-lg overflow-hidden">
+                <MapContainer center={MAP_DEFAULT_CENTER} zoom={16} style={{ height: '100%', width: '100%' }}>
+                  <TileLayer
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    attribution='&copy; OpenStreetMap contributors'
+                  />
+
+                  <FitBounds points={markerPoints.map(m => m.latlng)} />
+
+                  {/* heat circles (aggregated) */}
+                  {densityBins.map((bin, idx) => (
+                    <Circle
+                      key={`heat-${idx}`}
+                      center={[bin.lat, bin.lng]}
+                      radius={radiusForCount(bin.count)}
+                      pathOptions={{
+                        color: bin.count > 4 ? '#dc2626' : '#f97316',
+                        fillColor: bin.count > 4 ? '#dc2626' : '#f97316',
+                        fillOpacity: Math.min(0.35 + bin.count * 0.05, 0.6),
+                        weight: 0,
+                      }}
+                    />
+                  ))}
+
+                  {/* exact markers */}
+                  {markerPoints.map((p, idx) => {
+                    const color = statusColor(p.issue.status || p.issue.status_ui);
+                    const icon = makeSvgIcon(color);
+                    return (
+                      <Marker key={p.id || idx} position={p.latlng} icon={icon}>
+                        <Popup>
+                          <div className="max-w-xs">
+                            <h3 className="font-semibold">{p.issue.title}</h3>
+                            <div className="text-sm text-muted-foreground mb-2">{p.issue.description?.slice?.(0, 120)}</div>
+                            <div className="text-xs mb-2">Status: {p.issue.status || p.issue.status_ui}</div>
+                            <div className="flex gap-2">
+                              <Button size="sm" variant="outline" onClick={() => { /* open issue details */ }}>View</Button>
+                              <Button size="sm" onClick={() => updateIssueStatus(p.id, 'resolved')}>Resolve</Button>
+                            </div>
+                          </div>
+                        </Popup>
+                      </Marker>
+                    );
+                  })}
+                </MapContainer>
               </div>
             </Card>
 
@@ -252,7 +390,7 @@ const AdminDashboard: React.FC = () => {
 
                       {/* categories derived from current issues */}
                       {derivedCategories.map(cat => (
-                        <SelectItem key={`cat-${cat}`} value={cat}>
+                        <SelectItem key={`cat2-${cat}`} value={cat}>
                           Category: {cat}
                         </SelectItem>
                       ))}
@@ -264,7 +402,7 @@ const AdminDashboard: React.FC = () => {
 
                       {/* all predefined tags */}
                       {PREDEFINED_TAGS.map(tag => (
-                        <SelectItem key={`tag-${tag}`} value={tag}>
+                        <SelectItem key={`tag2-${tag}`} value={tag}>
                           Tag: {tag}
                         </SelectItem>
                       ))}
