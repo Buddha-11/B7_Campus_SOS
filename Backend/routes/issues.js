@@ -21,7 +21,7 @@ router.get('/:id', ctrl.getIssue);
 router.post('/:id/upvote', authMiddleware, ctrl.toggleUpvote);
 
 // update tags (reporter or admin)
-router.patch('/:id/tags', authMiddleware, ctrl.updateTags);
+router.patch('/:id/tags',  ctrl.updateTags);
 
 // admin updates status (role/permission checked in controller)
 router.patch('/:id/status', authMiddleware, ctrl.updateStatus);

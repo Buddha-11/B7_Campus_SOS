@@ -156,21 +156,41 @@ const toggleUpvote = async (req, res) => {
 // Admin or reporter: change status (Open -> InProgress -> Resolved)
 const updateStatus = async (req, res) => {
   try {
-    const { status, assignedAdminId } = req.body;
+    const { status: rawStatus, assignedAdminId } = req.body;
     const issue = await Issue.findById(req.params.id).populate('reporter');
     if (!issue) return res.status(404).json({ message: 'Issue not found' });
 
-    // permission check: only admin or assigned admin or reporter can update status
-    const isAdmin = req.user.role === 'admin';
-    const isAssignedAdmin = issue.assignedAdmin && issue.assignedAdmin.equals(req.user._id);
-    const isReporter = issue.reporter._id.equals(req.user._id);
-    if (!isAdmin && !isAssignedAdmin && !isReporter) {
-      return res.status(403).json({ message: 'Not allowed to change status' });
-    }
+    // normalize role check (accept role, userType, type, case-insensitive)
+    const userRoleRaw = (req.user && (req.user.role || req.user.userType || req.user.type)) || '';
+    const userRole = String(userRoleRaw).toLowerCase();
+    const isAdmin = userRole === 'admin';
+
+    // reporter check (keep reporter able to update)
+    const isReporter = issue.reporter && issue.reporter._id && issue.reporter._id.equals(req.user._id);
+    console.log(isAdmin);
+    
+
+    // normalize incoming status to match schema enum: 'Open' | 'InProgress' | 'Resolved'
+    const normalizeStatus = (s) => {
+      if (!s) return s;
+      const lower = String(s).toLowerCase();
+      if (lower === 'open') return 'Open';
+      if (lower === 'inprogress' || lower === 'in progress' || lower === 'progress') return 'InProgress';
+      if (lower === 'resolved') return 'Resolved';
+      // fallback: return original (may be already correct)
+      return s;
+    };
+
+    const status = normalizeStatus(rawStatus);
 
     const prevStatus = issue.status;
     issue.status = status;
-    if (assignedAdminId && mongoose.Types.ObjectId.isValid(assignedAdminId)) issue.assignedAdmin = assignedAdminId;
+
+    // allow assigning an admin if provided (but do NOT require assignedAdmin to match user)
+    if (assignedAdminId && mongoose.Types.ObjectId.isValid(assignedAdminId)) {
+      issue.assignedAdmin = assignedAdminId;
+    }
+
     if (status === 'Resolved' && prevStatus !== 'Resolved') {
       issue.resolvedAt = new Date();
 
@@ -196,6 +216,7 @@ const updateStatus = async (req, res) => {
     res.status(500).json({ message: 'Update status failed', error: err.message });
   }
 };
+
 
 // Update tags on an issue (reporter or admin can do it)
 const updateTags = async (req, res) => {

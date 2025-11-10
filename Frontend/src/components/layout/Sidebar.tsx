@@ -26,7 +26,6 @@ const Sidebar = ({ userType, className }: SidebarProps) => {
   const adminItems = [
     { icon: BarChart3, label: "Overview", href: "/admin" },
     { icon: Map, label: "Heatmap", href: "/admin/heatmap" },
-    { icon: Grid3X3, label: "Categories", href: "/admin/categories" },
     { icon: FileText, label: "All Issues", href: "/admin/issues" },
   ];
 
