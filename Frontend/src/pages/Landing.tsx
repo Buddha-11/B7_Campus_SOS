@@ -44,7 +44,7 @@ const Landing = () => {
             variant="outline"
             onClick={() => navigate('/auth/login')}
           >
-            Admin Login
+             Login
           </Button>
         </div>
       </header>
@@ -76,14 +76,6 @@ const Landing = () => {
                 >
                   Report an Issue
                   <ArrowRight className="h-5 w-5" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="lg"
-                  onClick={() => navigate('/auth/login')}
-                  className="shadow-sm hover:shadow-md transition-all duration-200"
-                >
-                  Admin Login
                 </Button>
               </div>
             </div>

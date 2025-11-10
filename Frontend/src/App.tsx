@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
+
 import Landing from "./pages/Landing";
 import StudentDashboard from "./pages/StudentDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -16,6 +17,10 @@ import Heatmap from "./pages/admin/Heatmap";
 import Categories from "./pages/admin/Categories";
 import AllIssues from "./pages/admin/AllIssues";
 
+import RequireAuth from "./routes/RequireAuth";
+import RequireAdmin from "./routes/RequireAdmin";
+import PublicRoute from "./routes/PublicRoute";
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -26,17 +31,59 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
+            {/* public */}
             <Route path="/" element={<Landing />} />
-            <Route path="/dashboard" element={<StudentDashboard />} />
-            <Route path="/dashboard/report" element={<ReportIssue />} />
-            <Route path="/dashboard/profile" element={<Profile />} />
-            <Route path="/dashboard/leaderboard" element={<Leaderboard />} />
-            <Route path="/admin" element={<AdminDashboard />} />
-            <Route path="/admin/heatmap" element={<Heatmap />} />
-            <Route path="/admin/categories" element={<Categories />} />
-            <Route path="/admin/issues" element={<AllIssues />} />
-            <Route path="/auth/login" element={<Login />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="/auth/login" element={
+              <PublicRoute>
+                <Login />
+              </PublicRoute>
+            } />
+
+            {/* student protected routes */}
+            <Route path="/dashboard" element={
+              <RequireAuth>
+                <StudentDashboard />
+              </RequireAuth>
+            } />
+            <Route path="/dashboard/report" element={
+              <RequireAuth>
+                <ReportIssue />
+              </RequireAuth>
+            } />
+            <Route path="/dashboard/profile" element={
+              <RequireAuth>
+                <Profile />
+              </RequireAuth>
+            } />
+            <Route path="/dashboard/leaderboard" element={
+              <RequireAuth>
+                <Leaderboard />
+              </RequireAuth>
+            } />
+
+            {/* admin protected routes */}
+            <Route path="/admin" element={
+              <RequireAdmin>
+                <AdminDashboard />
+              </RequireAdmin>
+            } />
+            <Route path="/admin/heatmap" element={
+              <RequireAdmin>
+                <Heatmap />
+              </RequireAdmin>
+            } />
+            <Route path="/admin/categories" element={
+              <RequireAdmin>
+                <Categories />
+              </RequireAdmin>
+            } />
+            <Route path="/admin/issues" element={
+              <RequireAdmin>
+                <AllIssues />
+              </RequireAdmin>
+            } />
+
+            {/* catch-all */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

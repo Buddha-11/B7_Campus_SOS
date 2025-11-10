@@ -25,7 +25,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/issues', issueRoutes);
 //app.use('/api/tags', tagRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
-app.use('/api/uploads', uploadRoutes);
+app.use('/api/upload', uploadRoutes);
 
 // Health
 app.get('/api/health', (req, res) => res.json({ ok: true, time: new Date() }));

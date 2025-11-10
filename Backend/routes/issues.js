@@ -9,7 +9,7 @@ const ctrl = require('../controllers/issueController');
 router.get('/', ctrl.listIssues);
 
 // create issue (auth required) - file field name: image
-router.post('/', authMiddleware, upload.single('image'), ctrl.createIssue);
+router.post('/', authMiddleware,  ctrl.createIssue);
 
 // user-specific issues
 router.get('/me', authMiddleware, ctrl.listUserIssues);

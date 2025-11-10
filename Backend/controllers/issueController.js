@@ -30,50 +30,53 @@ const uploadBufferToCloudinary = (buffer, filename) => {
 // Create issue (user)
 const createIssue = async (req, res) => {
   try {
-    const { title, description, lng, lat, tags = [], severity = 'Low' } = req.body;
-    if (!title || !lng || !lat) return res.status(400).json({ message: 'title and location required' });
+    const { title, description, lng, lat, tags = [], severity = "Low", imageUrl } = req.body;
 
-    // parse tags if sent as JSON string
+    if (!title || !lng || !lat) {
+      return res.status(400).json({ message: "title and location required" });
+    }
+
+    // Parse tags (ensure it's an array of valid strings)
     let tagArray = [];
     try {
       tagArray = validateTags(Array.isArray(tags) ? tags : JSON.parse(tags));
     } catch (e) {
-      // if parsing fails, try using tags as array directly
       tagArray = validateTags(tags);
     }
 
-    let imageUrl = null;
-    if (req.file && req.file.buffer) {
-      // use a deterministic-ish filename: timestamp-random
-      const uniqueName = `issue-${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-      try {
-        const result = await uploadBufferToCloudinary(req.file.buffer, uniqueName);
-        imageUrl = result.secure_url || result.url || null;
-      } catch (err) {
-        console.error('Cloudinary upload error:', err);
-        return res.status(500).json({ message: 'Image upload failed', error: err.message || err });
-      }
+    // Handle image URL (optional)
+    let finalImageUrl = null;
+    if (typeof imageUrl === "string" && imageUrl.trim().length > 0) {
+      finalImageUrl = imageUrl.trim();
     }
 
+    // Create issue
     const issue = await Issue.create({
       title,
       description,
       reporter: req.user._id,
-      imageUrl,
-      location: { type: 'Point', coordinates: [parseFloat(lng), parseFloat(lat)] },
+      imageUrl: finalImageUrl,
+      location: {
+        type: "Point",
+        coordinates: [parseFloat(lng), parseFloat(lat)],
+      },
       tags: tagArray,
-      severity
+      severity,
     });
 
-    // increment user's reports count
+    // Increment user's submitted reports count
     await User.findByIdAndUpdate(req.user._id, { $inc: { reportsSubmitted: 1 } });
 
     res.status(201).json(issue);
   } catch (err) {
-    console.error('createIssue error:', err);
-    res.status(500).json({ message: 'Create issue failed', error: err.message });
+    console.error("createIssue error:", err);
+    res.status(500).json({
+      message: "Create issue failed",
+      error: err.message,
+    });
   }
 };
+
 
 // Get single issue
 const getIssue = async (req, res) => {

@@ -16,7 +16,18 @@ import requests
 
 # google api core exceptions for nicer error handling
 from google.api_core import exceptions as gexc
+from fastapi.middleware.cors import CORSMiddleware
 
+app = FastAPI(title="LLM Content Validator (Gemini)")
+
+# ✅ Add this right below
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # or specify your frontend origin: ["http://localhost:5173"]
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 # import the genai SDK
 try:
     import google.generativeai as genai
@@ -30,7 +41,7 @@ log = logging.getLogger("llm-service")
 
 # --- Configuration from ENV ---
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-pro")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
 PORT = int(os.environ.get("PORT", 9000))
 HOST = os.environ.get("HOST", "0.0.0.0")
 
@@ -77,7 +88,7 @@ else:
     if not _HAS_GENAI:
         log.warning("google.generativeai SDK not available. Install 'google-generativeai' to enable LLM checks.")
 
-app = FastAPI(title="LLM Content Validator (Gemini)")
+
 
 # --- schemas
 class CheckRequest(BaseModel):
