@@ -254,13 +254,13 @@ const ReportIssue = () => {
               <p className="text-gray-600 mb-8">
                 Your report has been submitted and will be reviewed by our team shortly.
               </p>
-              <button
+              {/* <button
                 onClick={() => setSubmitted(false)}
                 className="w-full bg-blue-500 text-white font-medium px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center gap-2"
               >
                 <ArrowLeft className="h-4 w-4" />
                 Back to Dashboard
-              </button>
+              </button> */}
             </div>
           </main>
         </div>
